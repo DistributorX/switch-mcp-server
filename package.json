@@ -1,0 +1,22 @@
+{
+  "name": "@distributorx/switch-mcp-server",
+  "version": "0.2.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "dist/stdio.js",
+  "bin": {
+    "switch-mcp": "./dist/stdio.js"
+  },
+  "scripts": {
+    "dev": "ts-node src/stdio.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/stdio.js"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
