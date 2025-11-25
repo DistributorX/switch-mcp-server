@@ -12,10 +12,10 @@
     "start": "node dist/stdio.js"
   },
   "dependencies": {
-    "typescript": "^5.3.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }
