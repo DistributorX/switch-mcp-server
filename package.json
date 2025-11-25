@@ -1,6 +1,6 @@
 {
   "name": "@distributorx/switch-mcp-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "UNLICENSED",
   "main": "dist/stdio.js",
   "bin": {
