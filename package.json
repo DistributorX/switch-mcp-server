@@ -8,12 +8,16 @@
   },
   "files": [
     "dist",
-    "mcp-switch-manual"
+    "mcp-switch-manual",
+    "examples",
+    "README.md",
+    "package.json"
   ],
   "scripts": {
     "dev": "ts-node src/stdio.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/stdio.js"
+    "start": "node dist/stdio.js",
+    "prepare": "npm run build"
   },
   "dependencies": {
   },
