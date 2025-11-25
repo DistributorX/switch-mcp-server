@@ -89,7 +89,7 @@ async function handleLine(line: string) {
         break;
       }
       default:
-        reply(msg.id, null, { code: "unknown_method", message: String((msg as any).method) });
+        reply((msg as any).id, null, { code: "unknown_method", message: String((msg as any).method) });
     }
   } catch (err: any) {
     reply(msg.id, null, { code: "server_error", message: err?.message ?? "error" });
