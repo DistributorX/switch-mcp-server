@@ -6,6 +6,10 @@
   "bin": {
     "switch-mcp": "./dist/stdio.js"
   },
+  "files": [
+    "dist",
+    "mcp-switch-manual"
+  ],
   "scripts": {
     "dev": "ts-node src/stdio.ts",
     "build": "tsc -p tsconfig.json",
