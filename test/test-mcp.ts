@@ -298,6 +298,12 @@ async function runTests() {
     "Search results include section headings (source — heading format)"
   );
 
+  // Results include content type tags
+  assert(
+    xmlResults.includes("[patterns]") || xmlResults.includes("[reference]") || xmlResults.includes("[manual]"),
+    "Search results include content type tags"
+  );
+
   // ---- 7. Error handling ----
   console.log("\n7. Error handling");
 

@@ -17,6 +17,8 @@ export interface DocFile {
   description: string;
 }
 
+export type ContentType = "reference" | "patterns" | "examples" | "guide" | "manual";
+
 export interface DocChunk {
   /** Source file relative path */
   source: string;
@@ -28,6 +30,8 @@ export interface DocChunk {
   hash: string;
   /** URI of the source file */
   uri: string;
+  /** Content type for categorization */
+  contentType: ContentType;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,6 +98,16 @@ export function discoverDocs(docRoot: string): DocFile[] {
 // Chunking
 // ---------------------------------------------------------------------------
 
+/** Classify a file by its path into a content type. */
+export function classifyContent(relativePath: string): ContentType {
+  if (relativePath.startsWith("api/")) return "reference";
+  if (relativePath.startsWith("examples/")) return "examples";
+  if (relativePath.startsWith("dev/")) return "guide";
+  if (relativePath.toLowerCase().includes("dialect")) return "patterns";
+  if (relativePath.includes("Chapter")) return "manual";
+  return "guide";
+}
+
 function hashText(text: string): string {
   return crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
@@ -108,6 +122,7 @@ const MAX_CHUNK_SIZE = 3000;
  */
 export function chunkMarkdown(content: string, relativePath: string, uri: string): DocChunk[] {
   const fileTitle = generateName(relativePath);
+  const contentType = classifyContent(relativePath);
 
   // For short files, keep as a single chunk
   if (content.length < 500) {
@@ -118,6 +133,7 @@ export function chunkMarkdown(content: string, relativePath: string, uri: string
       text,
       hash: hashText(text),
       uri,
+      contentType,
     }];
   }
 
@@ -161,6 +177,7 @@ export function chunkMarkdown(content: string, relativePath: string, uri: string
         text: raw.text,
         hash: hashText(raw.text),
         uri,
+        contentType,
       });
     } else {
       const subChunks = splitByParagraphs(raw.text, raw.heading);
@@ -171,6 +188,7 @@ export function chunkMarkdown(content: string, relativePath: string, uri: string
           text: sub.text,
           hash: hashText(sub.text),
           uri,
+          contentType,
         });
       }
     }

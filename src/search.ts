@@ -23,6 +23,8 @@ export interface SearchResult {
   uri: string;
   /** Cosine similarity score (0-1) */
   score: number;
+  /** Content type: reference, patterns, examples, guide, manual */
+  contentType: string;
 }
 
 interface CacheEntry {
@@ -218,6 +220,7 @@ export class SearchIndex {
         snippet: truncated,
         uri: chunk.uri,
         score: Math.round(score * 1000) / 1000,
+        contentType: chunk.contentType,
       });
     }
 

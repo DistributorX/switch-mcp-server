@@ -79,7 +79,7 @@ server.tool("search_docs", "Search Switch scripting documentation using semantic
     }
     let text = `Found ${results.length} result${results.length !== 1 ? "s" : ""} for "${query}":\n\n`;
     for (const [idx, hit] of results.entries()) {
-        text += `${idx + 1}. **${hit.source}** — ${hit.heading} (relevance: ${hit.score})\n`;
+        text += `${idx + 1}. [${hit.contentType}] **${hit.source}** — ${hit.heading} (relevance: ${hit.score})\n`;
         text += `   URI: ${hit.uri}\n`;
         text += `   ${hit.snippet}\n\n`;
     }

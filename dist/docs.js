@@ -65,6 +65,20 @@ export function discoverDocs(docRoot) {
 // ---------------------------------------------------------------------------
 // Chunking
 // ---------------------------------------------------------------------------
+/** Classify a file by its path into a content type. */
+export function classifyContent(relativePath) {
+    if (relativePath.startsWith("api/"))
+        return "reference";
+    if (relativePath.startsWith("examples/"))
+        return "examples";
+    if (relativePath.startsWith("dev/"))
+        return "guide";
+    if (relativePath.toLowerCase().includes("dialect"))
+        return "patterns";
+    if (relativePath.includes("Chapter"))
+        return "manual";
+    return "guide";
+}
 function hashText(text) {
     return crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
@@ -77,6 +91,7 @@ const MAX_CHUNK_SIZE = 3000;
  */
 export function chunkMarkdown(content, relativePath, uri) {
     const fileTitle = generateName(relativePath);
+    const contentType = classifyContent(relativePath);
     // For short files, keep as a single chunk
     if (content.length < 500) {
         const text = content.trim();
@@ -86,6 +101,7 @@ export function chunkMarkdown(content, relativePath, uri) {
                 text,
                 hash: hashText(text),
                 uri,
+                contentType,
             }];
     }
     // First pass: split by ## and ### headings
@@ -125,6 +141,7 @@ export function chunkMarkdown(content, relativePath, uri) {
                 text: raw.text,
                 hash: hashText(raw.text),
                 uri,
+                contentType,
             });
         }
         else {
@@ -136,6 +153,7 @@ export function chunkMarkdown(content, relativePath, uri) {
                     text: sub.text,
                     hash: hashText(sub.text),
                     uri,
+                    contentType,
                 });
             }
         }

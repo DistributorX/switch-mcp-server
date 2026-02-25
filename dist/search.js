@@ -168,6 +168,7 @@ export class SearchIndex {
                 snippet: truncated,
                 uri: chunk.uri,
                 score: Math.round(score * 1000) / 1000,
+                contentType: chunk.contentType,
             });
         }
         return results;
