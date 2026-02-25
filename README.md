@@ -65,14 +65,14 @@ Restart your IDE after adding the configuration. You should see "switch-docs" ap
 
 ## Updating
 
-When documentation or code changes are pushed:
+When code or documentation changes are pushed to the repo:
 
 ```bash
 cd switch-mcp-server
 git pull && npm install
 ```
 
-Restart your IDE to pick up the changes. The embedding cache auto-invalidates when document content changes.
+Restart your IDE to pick up the changes. If only documentation files changed (no code changes), you can skip `npm install` — just restart the IDE.
 
 ## What's Included
 
@@ -98,9 +98,37 @@ The `search_docs` tool understands natural language:
 
 Results include relevance scores, content type tags (`[reference]`, `[patterns]`, `[manual]`, etc.), and text snippets.
 
-## Adding Content
+## Updating Content
 
-Drop a `.md` file into `mcp-switch-manual/` (or a subdirectory). It's automatically discovered on next server start. Content types are inferred from path:
+The documentation in `mcp-switch-manual/` is the knowledge base. You can edit any file, add new files, or remove files — the search index rebuilds automatically on next server start.
+
+### Editing existing files
+
+Edit any `.md` file in `mcp-switch-manual/` directly. For example, to add a new Dialect entry:
+
+1. Open `mcp-switch-manual/Enfocus Switch Scripting - Dialect.md`
+2. Add your new `##` section following the existing What/Why/Usage pattern
+3. Restart your IDE (this restarts the MCP server)
+
+That's it. The server re-chunks the changed file, re-embeds only the new/modified chunks (unchanged chunks load from cache), and the new content is immediately searchable.
+
+### Adding new files
+
+Drop a `.md` file into `mcp-switch-manual/` or any subdirectory. It's automatically discovered on next server start. Use `##` headings to create natural chunk boundaries for search.
+
+### How the search index works
+
+On every server start:
+1. All `.md` files in `mcp-switch-manual/` are discovered and split into chunks (by `##`/`###` headings)
+2. Each chunk is hashed by content — if the hash matches the cached embedding, it's loaded instantly
+3. Only new or changed chunks are re-embedded (takes a few seconds)
+4. The cache is saved to `.cache/embeddings.json` for next time
+
+So after editing content, you just restart the IDE. No build step, no manual re-indexing.
+
+### Content types
+
+Content type tags are assigned based on file path and appear in search results:
 
 | Path | Content Type |
 |------|-------------|
@@ -110,8 +138,6 @@ Drop a `.md` file into `mcp-switch-manual/` (or a subdirectory). It's automatica
 | Files containing "Dialect" | patterns |
 | Files containing "Chapter" | manual |
 | Everything else | guide |
-
-The embedding cache invalidates automatically when file content changes.
 
 ## CLI Options
 
