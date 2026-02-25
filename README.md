@@ -1,215 +1,153 @@
 # Switch MCP Server
 
-**Fully MCP-compliant** stdio server providing Enfocus Switch scripting documentation to AI assistants like Claude Desktop and Cursor.
+MCP server that gives AI assistants access to Enfocus Switch scripting documentation. When configured in your IDE, the AI can browse API reference docs, read the Switch Dialect patterns guide, and run semantic search queries — so it writes accurate Switch-specific code instead of guessing.
 
-## What is this?
-
-This is an MCP (Model Context Protocol) server that gives AI assistants access to comprehensive Switch scripting documentation. When configured in Claude Desktop or Cursor, the AI can:
-
-- Browse all Switch API documentation (31 markdown files)
-- Read specific documentation files
-- Search documentation for specific terms
-- Get context-aware help while writing Switch scripts
-
-## Quick Start
-
-### Install
+## Setup
 
 ```bash
-# Run directly via npx (recommended for quick testing)
-npx github:DistributorX/switch-mcp-server
-
-# Or install globally
-npm install -g github:DistributorX/switch-mcp-server
-switch-mcp --help
+git clone <repo-url> switch-mcp-server
+cd switch-mcp-server
+npm install    # builds TypeScript and downloads embedding model on first run
 ```
 
-### Configure in Claude Desktop
+That's it. The `npm install` step compiles the TypeScript source and on the first search query the embedding model (~80MB) downloads automatically. Subsequent starts load cached embeddings in under a second.
 
-Add to your Claude Desktop configuration file:
+## IDE Configuration
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+Point your IDE at the compiled server entry point. Replace `/path/to/switch-mcp-server` with your actual clone path.
+
+### Claude Code
+
+Add to `~/.claude.json` (global) or `.mcp.json` (per-project):
 
 ```json
 {
   "mcpServers": {
     "switch-docs": {
-      "command": "npx",
-      "args": ["github:DistributorX/switch-mcp-server"]
+      "command": "node",
+      "args": ["/path/to/switch-mcp-server/dist/stdio.js"]
     }
   }
 }
 ```
 
-Or if installed globally:
+### VS Code
+
+Add to `.vscode/mcp.json` in your project:
+
+```json
+{
+  "servers": {
+    "switch-docs": {
+      "command": "node",
+      "args": ["/path/to/switch-mcp-server/dist/stdio.js"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to Cursor MCP settings:
 
 ```json
 {
   "mcpServers": {
     "switch-docs": {
-      "command": "switch-mcp"
+      "command": "node",
+      "args": ["/path/to/switch-mcp-server/dist/stdio.js"]
     }
   }
 }
 ```
 
-Restart Claude Desktop, and you'll see "switch-docs" connected in the MCP section.
+Restart your IDE after adding the configuration. You should see "switch-docs" appear as a connected MCP server.
 
-### Configure in Cursor
+## Updating
 
-Add to your Cursor MCP settings:
+When documentation or code changes are pushed:
 
-```json
-{
-  "mcp": {
-    "servers": {
-      "switch-docs": {
-        "command": "switch-mcp"
-      }
-    }
-  }
-}
+```bash
+cd switch-mcp-server
+git pull && npm install
 ```
 
-## Features
+Restart your IDE to pick up the changes. The embedding cache auto-invalidates when document content changes.
 
-### Resources (31 Documentation Files)
+## What's Included
 
-Browse all Switch scripting documentation via MCP resources:
+### Documentation Resources (28 files)
 
-- **API Reference**: Core classes (Switch, Job, FlowElement, Connection)
-- **Document Helpers**: PDF, Image, XML, XMP manipulation
-- **Entry Points**: How Switch calls your scripts
-- **Guides**: Script elements, folders, packages, deployment
-- **Examples**: Tested code snippets
-- **Complete Manual**: Full Switch Scripting Node.js reference (Chapters 0-5)
+All served as MCP resources via `switch-docs://` URIs:
 
-All resources use the `switch-docs://` URI scheme (e.g., `switch-docs://api/job.md`).
+- **API Reference** (`api/`) — Core classes: Switch, Job, FlowElement, Connection, plus document helpers for PDF, Image, XML, XMP
+- **Dialect Patterns** — Real-world Switch scripting patterns with What/Why/Usage structure (jobArrived, timerFired, datasets, XML handling, webhooks, batching, etc.)
+- **Development Guides** (`dev/`) — Declarations, debugging, deployment
+- **Examples** (`examples/`) — Tested code snippets
+- **Manual Chapters** — Complete Switch Scripting Node.js reference (Chapters 0-5)
 
-### Search Tool
+### Semantic Search Tool
 
-The `search_docs` tool lets AI search documentation for specific terms:
+The `search_docs` tool understands natural language:
 
 ```
-search_docs(query="FlowElement", limit=5)
+"how do I read XML data from a job"     → finds XmlDocument API + Dialect patterns
+"batch jobs with timerFired"             → finds timerFired entry point + batching patterns
+"set up a webhook in Switch"             → finds HTTP request docs
 ```
 
-Returns snippets with context from matching files.
+Results include relevance scores, content type tags (`[reference]`, `[patterns]`, `[manual]`, etc.), and text snippets.
 
-## MCP Protocol
+## Adding Content
 
-This server implements the full MCP specification (JSON-RPC 2.0):
+Drop a `.md` file into `mcp-switch-manual/` (or a subdirectory). It's automatically discovered on next server start. Content types are inferred from path:
 
-### Supported Methods
+| Path | Content Type |
+|------|-------------|
+| `api/` | reference |
+| `examples/` | examples |
+| `dev/` | guide |
+| Files containing "Dialect" | patterns |
+| Files containing "Chapter" | manual |
+| Everything else | guide |
 
-| Method | Description |
-|--------|-------------|
-| `initialize` | Initialize MCP connection |
-| `notifications/initialized` | Client acknowledgment |
-| `resources/list` | List all 31 documentation files with descriptions |
-| `resources/read` | Read a specific doc by URI |
-| `tools/list` | List available tools (search_docs) |
-| `tools/call` | Execute search tool |
-
-### Example Protocol Flow
-
-```json
-→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"claude-desktop","version":"1.0"}}}
-← {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"resources":{},"tools":{}},"serverInfo":{"name":"switch-mcp-server","version":"0.3.0"}}}
-
-→ {"jsonrpc":"2.0","method":"notifications/initialized"}
-
-→ {"jsonrpc":"2.0","id":2,"method":"resources/list"}
-← {"jsonrpc":"2.0","id":2,"result":{"resources":[{"uri":"switch-docs://api/job.md","name":"Job","description":"Represents a job...","mimeType":"text/markdown"}...]}}
-
-→ {"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":"switch-docs://api/job.md"}}
-← {"jsonrpc":"2.0","id":3,"result":{"contents":[{"uri":"switch-docs://api/job.md","mimeType":"text/markdown","text":"# Job API\n..."}]}}
-
-→ {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"FlowElement","limit":3}}}
-← {"jsonrpc":"2.0","id":4,"result":{"content":[{"type":"text","text":"Found 3 results...\n"}],"isError":false}}
-```
+The embedding cache invalidates automatically when file content changes.
 
 ## CLI Options
 
 ```
-switch-mcp [options]
+node dist/stdio.js [options]
 
 Options:
-  --doc-root <path>   Override documentation root (default: bundled mcp-switch-manual)
+  --doc-root <path>   Override documentation root (default: bundled mcp-switch-manual/)
   -h, --help          Show help
 ```
 
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Run in development mode
-npm run dev
-
-# Build to dist/
-npm run build
-
-# Test MCP protocol
-node test-mcp.js
+npm run build          # Compile TypeScript to dist/
+npm start              # Run the server
+npm test               # Build + run all test suites (101 tests)
 ```
 
-## Documentation Structure
+### Test Suites
 
-The bundled `mcp-switch-manual/` directory contains:
+- `test/test-chunking.ts` — Document discovery, chunking, and metadata (38 tests)
+- `test/test-mcp.ts` — Full MCP protocol: handshake, resources, tools, search (44 tests)
+- `test/test-scenarios.ts` — Real-world developer queries and search quality (19 tests)
 
-- `api/` - Core API classes (Switch, Job, FlowElement, etc.)
-- `dev/` - Development tools, debugging, declarations
-- `examples/` - Tested code snippets
-- Root guides (overview, script-elements, script-folders, etc.)
-- Complete manual chapters (Chapter 0-5)
+### Architecture
 
-All documentation is optimized for MCP/LLM consumption with rich metadata extracted from content.
-
-## Updating
-
-To get the latest version:
-
-```bash
-# If using npx (always pulls latest)
-npx github:DistributorX/switch-mcp-server
-
-# If installed globally
-npm install -g github:DistributorX/switch-mcp-server
+```
+src/
+  stdio.ts    Server entry point — MCP setup, resource registration, search tool
+  docs.ts     Document discovery, markdown chunking, metadata generation
+  search.ts   Semantic search — embeddings, caching, cosine similarity
 ```
 
-## Technical Details
-
-- **Protocol**: JSON-RPC 2.0 over stdin/stdout
-- **Dependencies**: Zero runtime dependencies (Node.js built-ins only)
-- **Size**: ~360KB bundled with documentation
-- **Implementation**: Single TypeScript file (~550 lines)
-- **Security**: Path sanitization prevents directory traversal
-
-## Version History
-
-### 0.3.0 (Current)
-- **Breaking Change**: Full MCP protocol compliance
-- Implemented JSON-RPC 2.0 format
-- Added initialization handshake (initialize/initialized)
-- Renamed methods to MCP standard (resources/list, resources/read)
-- Implemented URI-based addressing (switch-docs://)
-- Added rich resource metadata (names, descriptions extracted from content)
-- Search implemented as MCP tool (tools/call)
-- Works with Claude Desktop, Cursor, and other MCP clients
-
-### 0.2.0
-- Custom stdio protocol (incompatible with MCP)
-- Simple methods: listResources, readResource, search
+Built on `@modelcontextprotocol/sdk` with `StdioServerTransport`. Search uses `@huggingface/transformers` with the `all-MiniLM-L6-v2` embedding model (384-dim vectors, runs locally, no API key needed).
 
 ## License
 
 UNLICENSED - Private internal use
-
-## Links
-
-- [MCP Specification](https://modelcontextprotocol.io/)
-- [Enfocus Switch](https://www.enfocus.com/en/switch)
-- [Switch Scripting Samples](https://github.com/EnfocusSW)

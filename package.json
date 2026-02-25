@@ -1,18 +1,9 @@
 {
-  "name": "@distributorx/switch-mcp-server",
-  "version": "0.5.0",
+  "name": "switch-mcp-server",
+  "version": "0.9.0",
   "type": "module",
   "license": "UNLICENSED",
   "main": "dist/stdio.js",
-  "bin": {
-    "switch-mcp": "./dist/stdio.js"
-  },
-  "files": [
-    "dist",
-    "mcp-switch-manual",
-    "README.md",
-    "package.json"
-  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/stdio.js",

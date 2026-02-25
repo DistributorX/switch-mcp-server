@@ -1,6 +1,6 @@
 # Project Roadmap — switch-mcp-server v1.0
 
-> Refreshed February 2026. Replaces the original TODO.md scope.
+> Refreshed February 2026.
 
 ## Context
 
@@ -125,52 +125,15 @@ This project provides an MCP (Model Context Protocol) server that gives AI assis
 ### Tasks
 
 - [ ] Move repo to company GitHub organization
-- [ ] Write setup instructions in README
-  ```
-  git clone <repo-url>
-  cd switch-mcp-server
-  npm install        # builds automatically, downloads embedding model on first run
-  ```
-- [ ] Document IDE configuration
-  - **Claude Code** (`~/.claude.json` or project `.mcp.json`):
-    ```json
-    {
-      "mcpServers": {
-        "switch-docs": {
-          "command": "node",
-          "args": ["/path/to/switch-mcp-server/dist/stdio.js"]
-        }
-      }
-    }
-    ```
-  - **VS Code** (`.vscode/mcp.json`):
-    ```json
-    {
-      "servers": {
-        "switch-docs": {
-          "command": "node",
-          "args": ["/path/to/switch-mcp-server/dist/stdio.js"]
-        }
-      }
-    }
-    ```
-  - **Cursor** (settings):
-    ```json
-    {
-      "mcp": {
-        "servers": {
-          "switch-docs": {
-            "command": "node",
-            "args": ["/path/to/switch-mcp-server/dist/stdio.js"]
-          }
-        }
-      }
-    }
-    ```
-- [ ] Add update instructions: `git pull && npm install`
+- [x] Write setup instructions in README (git clone → npm install → configure IDE)
+- [x] Document IDE configuration (Claude Code, VS Code, Cursor)
+- [x] Add update instructions: `git pull && npm install`
 - [ ] Consider a `postinstall` script that pre-downloads the embedding model so first query isn't slow
-- [ ] Remove npm publish configuration (no longer needed)
-- [ ] Clean up package.json: remove `bin`, update `name`, remove `.npmignore`
+- [x] Remove npm publish configuration (`bin`, `files`, `.npmignore` removed)
+- [x] Clean up package.json: removed `bin`, updated `name`, removed `.npmignore`
+- [x] Add `dist/` to `.gitignore` (built on install via `prepare` script)
+- [x] Update `CLAUDE.md` to reflect current architecture
+- [x] Version bumped to 0.9.0
 
 ### Acceptance Criteria
 
@@ -195,8 +158,8 @@ This project provides an MCP (Model Context Protocol) server that gives AI assis
   - e.g., "Write a jobArrived handler that..." with proper Switch boilerplate
 - [ ] Monitor embedding model updates — newer/smaller models may become available
 - [ ] Consider whether the old `switch-docs://` URI scheme should change or stay
-- [ ] Clean up `old-switch-manual/` (archive or remove if no longer needed)
-- [ ] Update `AGENTS.md` to reflect new architecture and workflows
+- [x] Removed `old-switch-manual/` (duplicate of chapters in `mcp-switch-manual/`)
+- [x] Removed `AGENTS.md` (not needed)
 
 ---
 

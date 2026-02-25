@@ -16,7 +16,7 @@ import { SearchIndex } from "./search.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const VERSION = "0.5.0";
+const VERSION = "0.9.0";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -160,7 +160,7 @@ Options:
 
 Features:
   - Semantic search powered by all-MiniLM-L6-v2 (local, no API key)
-  - 32+ Switch scripting documentation resources
+  - 28 Switch scripting documentation resources
   - Embedding cache for fast startup
 
 Built on @modelcontextprotocol/sdk with stdio transport.

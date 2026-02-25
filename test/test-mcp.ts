@@ -109,7 +109,7 @@ async function runTests() {
   assert(initResp.result !== undefined, "Initialize returns result (no error)");
   assert(typeof initResp.result.protocolVersion === "string", "Response includes protocolVersion");
   assertEqual(initResp.result.serverInfo.name, "switch-docs", "Server name is switch-docs");
-  assertEqual(initResp.result.serverInfo.version, "0.5.0", "Server version is 0.5.0");
+  assertEqual(initResp.result.serverInfo.version, "0.9.0", "Server version is 0.9.0");
   assert(initResp.result.capabilities.resources !== undefined, "Advertises resources capability");
   assert(initResp.result.capabilities.tools !== undefined, "Advertises tools capability");
 
@@ -121,7 +121,7 @@ async function runTests() {
   const listResp = await client.request("resources/list");
   const resources = listResp.result.resources;
   assert(Array.isArray(resources), "Returns resources array");
-  assert(resources.length >= 31, `Has at least 31 resources (got ${resources.length})`);
+  assert(resources.length >= 27, `Has at least 27 resources (got ${resources.length})`);
 
   // Check resource structure
   const firstResource = resources[0];

@@ -4,285 +4,114 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **fully MCP-compliant** stdio-based server that serves Enfocus Switch scripting documentation to AI assistants like Claude Desktop and Cursor.
+MCP server that serves Enfocus Switch scripting documentation to AI assistants. Built on the official `@modelcontextprotocol/sdk` with semantic search powered by local embeddings.
 
-**Current State**: Version 0.3.0 implements the complete MCP (Model Context Protocol) specification with:
-- JSON-RPC 2.0 format with `"jsonrpc": "2.0"` field
-- Full initialization handshake: `initialize` → response → `initialized`
-- Standard MCP methods: `resources/list`, `resources/read`, `tools/list`, `tools/call`
-- URI-based resource addressing (`switch-docs://path/to/file.md`)
-- Rich resource metadata (names and descriptions extracted from content)
-- Search functionality as MCP tool (`search_docs`)
-
-**Purpose**: Enable AI assistants to access comprehensive Switch scripting documentation, helping developers build Switch automation scripts with Node.js/TypeScript.
+**Version**: 0.9.0
+**Transport**: stdio (local, no network)
+**Distribution**: Git clone (not npm registry)
 
 ## Build & Development Commands
 
 ```bash
-# Install dependencies
-npm install
+npm install            # Install deps + build (prepare script)
+npm run build          # Compile TypeScript to dist/
+npm start              # Run the server
+npm test               # Build + run all 3 test suites (101 tests)
 
-# Development (runs TypeScript directly)
-npm run dev
-
-# Build (compile TypeScript to dist/)
-npm run build
-
-# Run production build
-npm start
-
-# Run CLI directly
-node dist/stdio.js
-# or with options:
-node dist/stdio.js --doc-root /custom/path
-
-# Test MCP protocol
-node test-mcp.js
+node dist/stdio.js                      # Run directly
+node dist/stdio.js --doc-root /custom   # Custom doc root
 ```
 
 ## Architecture
 
-### Single-file MCP Server
-The entire MCP server is implemented in `src/stdio.ts` (~550 lines). It's a clean, focused implementation:
+Three source files in `src/`:
 
-1. **Communication Layer**: JSON-RPC 2.0 over stdin/stdout
-   - Reads line-delimited JSON request messages from stdin
-   - Writes JSON-RPC 2.0 response messages to stdout
-   - No HTTP, no ports, no authentication needed
-   - Fully MCP-compliant
+### `src/stdio.ts` — Server entry point (~170 lines)
+- Creates `McpServer` from `@modelcontextprotocol/sdk`
+- Registers each doc file as a static MCP resource via `server.resource()`
+- Registers `search_docs` as an MCP tool via `server.tool()` with Zod schema
+- Builds search index in background (non-blocking — server starts immediately)
+- CLI arg parsing for `--doc-root` and `--help`
 
-2. **MCP Methods Implemented**:
-   - `initialize`: Handshake with protocol version and capabilities negotiation
-   - `notifications/initialized`: Client acknowledgment (no-op)
-   - `resources/list`: Returns all 31 `.md` files with URI, name, description, mimeType
-   - `resources/read`: Returns full content of a specific markdown file by URI
-   - `tools/list`: Exposes `search_docs` tool schema
-   - `tools/call`: Executes search and returns formatted results
+### `src/docs.ts` — Document discovery & chunking (~285 lines)
+- `discoverDocs(docRoot)` — Walks directory tree for `.md` files, generates metadata (URI, display name, description)
+- `chunkAllDocs(docRoot, docFiles)` — Reads all files and splits into chunks
+- `chunkMarkdown(content, path, uri)` — Splits by `##`/`###` headings, then by paragraphs/lines for oversized chunks (max 3000 chars)
+- `classifyContent(path)` — Categorizes files: `api/` → reference, `examples/` → examples, `dev/` → guide, Dialect → patterns, Chapter → manual
+- `pathToUri(path)` — Converts relative path to `switch-docs://` URI with encoded components
 
-3. **Server State Machine**:
-   - States: `UNINITIALIZED` → `READY`
-   - Rejects all non-initialize requests when uninitialized
-   - Validates protocol version (supports "2024-11-05")
-
-4. **URI System**:
-   - Scheme: `switch-docs://`
-   - Path encoding: Each component properly URI-encoded
-   - Security: Path sanitization prevents directory traversal
-   - Example: `switch-docs://api/Switch.md` or `switch-docs://Switch%20Scripting%20Node-js%20-%20Chapter%204%20-%20Scripting%20reference.md`
-
-5. **Resource Metadata**:
-   - Names generated from filenames (handles chapter format, converts kebab-case to Title Case)
-   - Descriptions extracted from first non-header paragraph (up to 200 chars)
-   - All resources include `uri`, `name`, `description`, `mimeType: "text/markdown"`
-
-6. **File System Operations**:
-   - Doc root defaults to bundled `mcp-switch-manual/` (configurable via `--doc-root` or `DOC_ROOT` env var)
-   - Recursive directory walking to find all `.md` files (31 total)
-   - Path/URI sanitization prevents directory traversal attacks
-   - All paths validated to stay within `DOC_ROOT`
-
-7. **Error Handling** (JSON-RPC 2.0 numeric codes):
-   - `-32700`: Parse error (invalid JSON)
-   - `-32600`: Invalid request (bad JSON-RPC format or uninitialized)
-   - `-32601`: Method not found
-   - `-32602`: Invalid params
-   - `-32603`: Internal error
-
-### Documentation Structure
-
-Documentation lives in `mcp-switch-manual/` (31 files):
-
-- **Full manual chapters**: `Switch Scripting Node-js - Chapter 0-5*.md` (complete reference, legacy format)
-- **High-level guides**: `overview.md`, `script-elements.md`, `script-folders.md`, `script-packages.md`
-- **Tooling**: `switchscripttool.md`, `switchscripter.md`
-- **API reference** (`api/`): Entry points, classes (Switch, FlowElement, Job, Connection), document helpers (PDF, Image, XML, XMP), HTTP, enums
-- **Development** (`dev/`): Declarations, debugging, deployment
-- **Examples** (`examples/`): Curated, tested code snippets with `README.md` and individual examples like `timer-log.md`
-
-The `old-switch-manual/` folder contains the original, unstructured documentation (kept for reference but not served by MCP).
+### `src/search.ts` — Semantic search (~238 lines)
+- `SearchIndex` class with `build()` and `search()` methods
+- Embeds chunks using `Xenova/all-MiniLM-L6-v2` (384-dim vectors) via `@huggingface/transformers`
+- Disk-backed embedding cache in `.cache/embeddings.json` — keyed by `source::hash` for content-based invalidation
+- Cosine similarity search with 0.25 minimum relevance threshold
+- Deduplicates results by source+heading pair
 
 ## TypeScript Configuration
 
-- Target: ES2020
-- Module: CommonJS (required for `#!/usr/bin/env node` and npm bin execution)
-- Strict mode enabled
-- Output: `dist/` directory
-- Single source file: `src/stdio.ts`
+- Target: ES2022, Module: Node16 (ESM)
+- Strict mode, output to `dist/`
+- `"type": "module"` in package.json
 
-## Key Implementation Details
+## Testing
 
-### URI Conversion (src/stdio.ts:382-407)
+Three test suites, all runnable via `npm test`:
 
-```typescript
-function pathToUri(relativePath: string): string {
-  const parts = relativePath.split('/');
-  const encoded = parts.map(p => encodeURIComponent(p)).join('/');
-  return `switch-docs://${encoded}`;
-}
+| Suite | File | Tests | Coverage |
+|-------|------|-------|----------|
+| Chunking | `test/test-chunking.ts` | 38 | Discovery, splitting, metadata, size limits |
+| MCP Protocol | `test/test-mcp.ts` | 44 | Handshake, resources, tools, search quality, errors |
+| Scenarios | `test/test-scenarios.ts` | 19 | Real developer queries, search relevance |
 
-function uriToPath(uri: string): string | null {
-  if (!uri.startsWith('switch-docs://')) return null;
-  const encoded = uri.slice('switch-docs://'.length);
-  try {
-    return decodeURIComponent(encoded);
-  } catch {
-    return null;
-  }
-}
+MCP tests spawn the server as a child process and communicate via JSON-RPC over stdio. Timeout is 60s per request (model download on first run).
 
-function sanitizeUri(uri: string): string | null {
-  const path = uriToPath(uri);
-  if (!path) return null;
-  const clean = path.replace(/^\/+/, "");
-  if (clean.includes("..")) return null;
-  return clean;
-}
-```
+## Key Design Decisions
 
-### Resource Name Generation (src/stdio.ts:410-425)
+- **Chunking max size 3000 chars** — Keeps within the embedding model's effective window (~512 tokens). Oversized sections (tables, long code blocks) are split by paragraph then by line.
+- **Cache key is `source::hash`** — Not `source::heading`, because duplicate headings within a file caused cache collisions.
+- **Background index build** — `indexReady` promise allows server to start handling requests immediately; search tool awaits it before first query.
+- **Content type tags** — Search results show `[reference]`, `[patterns]`, `[manual]`, etc. so the LLM knows if it's reading API docs vs practical patterns.
 
-Handles special cases like chapter files and converts paths to readable names:
-- `"Switch Scripting Node-js - Chapter 4 - Scripting reference.md"` → `"Chapter 4: Scripting reference"`
-- `"api/flow-element.md"` → `"Flow Element"`
+## Documentation Structure
 
-### Description Extraction (src/stdio.ts:427-450)
+Content lives in `mcp-switch-manual/` (28 files):
 
-Reads file content and extracts first non-header paragraph (up to 200 chars) for rich resource metadata.
-
-### Search Algorithm (src/stdio.ts:453-467)
-
-- Case-insensitive substring search across all markdown content
-- Returns first match per file
-- Extracts 160-character snippets (80 chars before/after match)
-- Configurable limit (default 20, max 50 results)
-- Results include path, snippet, and converted URI
-
-### Resource Discovery (src/stdio.ts:470-485)
-
-The `walk()` function implements non-recursive directory traversal using a stack, processing only `.md` files and following subdirectories.
+- `api/` — API reference (Switch, Job, FlowElement, Connection, XML, PDF, Image, XMP, HTTP, enums)
+- `dev/` — Development guides (declarations, debugging, deployment)
+- `examples/` — Tested code snippets
+- `Enfocus Switch Scripting - Dialect.md` — Real-world patterns (symlinked to working copy)
+- Root — Manual chapters (0-5), overview, script-elements, script-folders, etc.
 
 ## Development Workflow
 
-When modifying this codebase:
+1. Edit source in `src/` → `npm run build` → `npm test`
+2. Edit docs in `mcp-switch-manual/` → restart server (no build needed, but cache auto-invalidates)
+3. Add new content: drop `.md` file into `mcp-switch-manual/` subdirectory
 
-1. **Changes to MCP protocol**: Edit `src/stdio.ts`, update the `RequestMessage` type and add new method handlers in the switch statement (line 187)
-2. **Changes to documentation**: Edit files in `mcp-switch-manual/` (changes take effect immediately; no rebuild needed)
-3. **Testing**: Run `npm run build && node test-mcp.js` to verify MCP protocol
-4. **Building**: Always run `npm run build` before publishing/distributing (outputs to `dist/stdio.js`)
+## IDE Integration
 
-## Testing the Server
-
-Test with the included test script:
-
-```bash
-# Build first
-npm run build
-
-# Run MCP protocol test
-node test-mcp.js
-```
-
-This tests:
-1. Initialize handshake
-2. Initialized notification
-3. resources/list (verifies all 31 files)
-4. resources/read (specific file by URI)
-5. tools/list
-6. tools/call with search
-
-You should see complete JSON-RPC 2.0 request/response flow.
-
-## Common Patterns
-
-### Adding a New MCP Method
-
-1. Add method to `RequestMessage` type union (src/stdio.ts:67-73)
-2. Add case to switch statement in `handleLine()` (src/stdio.ts:187)
-3. Implement handler function following MCP spec
-4. Use `reply()` helper for responses (src/stdio.ts:371)
-
-### Adding Documentation
-
-1. Create `.md` file in appropriate `mcp-switch-manual/` subdirectory
-2. Follow existing naming/structure patterns (see `mcp-switch-manual/README.md`)
-3. Keep files focused and token-efficient
-4. Include TypeScript code examples in fenced blocks
-5. File appears automatically in `resources/list` results with generated metadata
-
-## Package Details
-
-- **Name**: `@distributorx/switch-mcp-server`
-- **Version**: 0.3.0 (MCP-compliant)
-- **License**: UNLICENSED (private)
-- **Bin**: Installs `switch-mcp` command globally
-- **Entry point**: `dist/stdio.js` (shebang: `#!/usr/bin/env node`)
-- **Dependencies**: Zero (Node.js built-ins only)
-
-## MCP Client Integration
-
-### Claude Desktop Configuration
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+Configure in Claude Code (`~/.claude.json`), VS Code (`.vscode/mcp.json`), or Cursor:
 
 ```json
 {
   "mcpServers": {
     "switch-docs": {
-      "command": "npx",
-      "args": ["github:DistributorX/switch-mcp-server"]
+      "command": "node",
+      "args": ["/path/to/switch-mcp-server/dist/stdio.js"]
     }
   }
 }
 ```
 
-Or if installed globally:
+## Dependencies
 
-```json
-{
-  "mcpServers": {
-    "switch-docs": {
-      "command": "switch-mcp"
-    }
-  }
-}
-```
-
-### Cursor Configuration
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "switch-docs": {
-        "command": "switch-mcp"
-      }
-    }
-  }
-}
-```
-
-Restart your IDE and the server will be available.
-
-## Version History
-
-### v0.3.0 (Current) - Full MCP Compliance
-- **Breaking change**: Complete protocol rewrite
-- Implemented JSON-RPC 2.0 with proper error codes
-- Added initialization handshake
-- Renamed methods to MCP standard (resources/list, resources/read)
-- Implemented URI-based addressing (switch-docs://)
-- Added rich resource metadata
-- Search implemented as MCP tool
-- Works with Claude Desktop, Cursor, and all MCP clients
-
-### v0.2.0 - Custom Protocol (Deprecated)
-- Custom stdio protocol (incompatible with MCP)
-- Simple methods: listResources, readResource, search
+| Package | Purpose |
+|---------|---------|
+| `@modelcontextprotocol/sdk` | MCP protocol (McpServer, StdioServerTransport) |
+| `@huggingface/transformers` | Local embedding model (all-MiniLM-L6-v2) |
+| `zod` | Schema validation for tool parameters |
 
 ## References
 
-For MCP protocol details:
 - [MCP Specification](https://modelcontextprotocol.io/specification/2025-06-18)
-- [JSON-RPC Protocol Guide](https://mcpcat.io/guides/understanding-json-rpc-protocol-mcp/)
-- [MCP Message Types Reference](https://portkey.ai/blog/mcp-message-types-complete-json-rpc-reference-guide/)
+- [ROADMAP.md](./ROADMAP.md) — 5-phase project roadmap

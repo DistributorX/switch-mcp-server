@@ -41,7 +41,7 @@ function assertEqual(actual: any, expected: any, message: string) {
 console.log("\n1. Document discovery");
 
 const docFiles = discoverDocs(DOC_ROOT);
-assert(docFiles.length >= 31, `Discovers at least 31 docs (got ${docFiles.length})`);
+assert(docFiles.length >= 27, `Discovers at least 27 docs (got ${docFiles.length})`);
 
 const dialectFile = docFiles.find(d => d.relativePath.includes("Dialect"));
 assert(dialectFile !== undefined, "Finds Dialect file");
